@@ -5,8 +5,8 @@
 * [Abstract](#abstract)
 * [Key Reference Material](#key-reference-material)
 * [Part 1: Pangenome Graph Construction](#part-1-pangenome-graph-construction)
-     * [Cactus Setup][#cactus-setup]
-     * [Input Data](#input-data]
+     * [Cactus Setup](#cactus-setup)
+     * [Input Data](#input-data)
      * [Build and Index the Pangenome Graph](#build-and-index-the-pangenome-graph)
 
 ## Abstract
@@ -15,15 +15,17 @@ This is a tutorial written to support the **Reference Graph Pangenome Data Analy
 
 Unlike some previous workshops, and most of the existing Cactus documentation, this tutorial will focus on whole-genome human data. As such, it will need to be run over a period of time longer than a typical workshop session. The running times and memory usage of each command will be given. 
 
+Slack (`#refgraph_hackathon_2023`) will probably be the best place to reach out to me (Glenn Hickey) for support. 
+
 ## Key Reference Material
 
 Please visit these links for related material and background information before proceeding further. **The first link is essential and should absolutely be consulted before continuing and the rest are highly recommended.** 
 
 * [Minigraph-Cactus Manual](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md): This is essential to read, and includes several small examples (with data) that should be run before tackling whole-genomes.
 * [Minigraph-Cactus Paper](https://doi.org/10.1038/s41587-023-01793-w): The methods are described in detail here.
-* [HPRC v1.1 Minigraph-Cactus Instructions](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/mc-pangenomes/hprc-v1.1-mc.md): Exact commands and explanations in order to exactly reproduce the latest released HPRC graph. The commands themselves assume a SLURM cluster but can be trivially modified to run on a single computer (remove `--batchSystem slurm`). 
+* [HPRC v1.1 Minigraph-Cactus Instructions](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/mc-pangenomes/hprc-v1.1-mc.md): Commands and explanations in order to exactly reproduce the latest released HPRC graphs. The commands themselves assume a SLURM cluster but can be trivially modified to run on a single computer (remove `--batchSystem slurm`). 
 * [HPRC Paper](https://doi.org/10.1038/s41586-023-05896-x): Detailed analysis of the HPRC graph, and examples of many downstream applications of Minigraph-Cactus pangenomes. 
-* @jeizennga's [2023 Memphis Workshop](https://github.com/pangenome/MemPanG23/blob/main/lessons/Day_3a_vg_mapping_and_calling.md), which served as an inspiration for this tutorial.
+* @jeizenga's [2023 Memphis Workshop](https://github.com/pangenome/MemPanG23/blob/main/lessons/Day_3a_vg_mapping_and_calling.md), which served as an inspiration for this tutorial.
 
 ## Part 1: Pangenome Graph Construction
 
@@ -31,9 +33,9 @@ Please visit these links for related material and background information before 
 
 **Important:** We will be using [Cactus v2.6.9](https://github.com/ComparativeGenomicsToolkit/cactus/releases/tag/v2.6.9) for this tutorial. Be warned that it may not work for newer or older versions.
 
-For simplicity, all cactus will be run in "single-machine" mode via its [docker](https://www.docker.com/) image.  Cactus supports distributed computing environments via [slurm](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/progressive.md#running-on-a-cluster) and [AWS/Mesos](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/running-in-aws.md).
+For simplicity, all cactus will be run in "single-machine" mode via its [docker](https://www.docker.com/) image.  Cactus also supports distributed computing environments via [slurm](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/progressive.md#running-on-a-cluster) and [AWS/Mesos](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/running-in-aws.md).
 
-In order to make sure docker is working, try running the following and verify that you do not get an error. 
+In order to make sure docker is working, try running the following and verify that you do not get an error. If this step does not work, you will need to consult your local sysadmin. 
 ```
 docker run hello-world
 ```
@@ -65,7 +67,7 @@ HG00733.2	https://s3-us-west-2.amazonaws.com/human-pangenomics/working/HPRC_PLUS
 
 ```
 
-**If you are making a pangenome graph with your own data, this should be the only part you need to change, but do see the sxplanation of the options below as some may require adjustments for different data sizes**. Also, nothing changes if you want to use haploid assemblies -- just do not use the `.1` and `.2` suffixes (see `CHM13` and `GRCh38` above).
+**If you are making a pangenome graph with your own data, this input listing should be the only part you need to change, but do see the explanation of the options below as some may require adjustments for different data sizes**. Also, nothing changes if you want to use haploid assemblies -- just do not use the `.1` and `.2` suffixes (see `CHM13` and `GRCh38` above).
 
 ### Build and Index the Pangenome Graph
 
@@ -100,18 +102,29 @@ For `cactus-pangenome`:
 * `--viz`: Make an ODGI 1D visualization image for each chromosome.
 * `--odgi`: Make an ODGI formatted whole-genome graph
 * `--chrom-vg clip filter`: Make VG formatted chromosome graphs for the both the AF filtered and (default) clipped pangenome.
+* `--chrom-og`: Make ODGI formatted chromosome graphs for the full (unclipped) graph. Useful for visualization. 
 * `--gbz clip filter full`: Make GBZ formatted whole-genome graphs for AF filtered, (default) clipped and full (containing unaligned centromeres) graphs.
 * `--gfa clip full`: Make GFA formatted whole-genome graphs for (default) clipped and full graphs.
 * `--vcf`: Make a VCF (based on the first reference) version of the graph
 * `--vcfReference GRCh38 CHM13`: Specify that we want two VCFs, one for each reference
 * `--logFile /data/hprc10.log`: All logging information will end up here in addition to `stderr`.  Important to save!
-* `--consCores 4`: Specify 4 threads for each core cactus job (`cactus_consolidated`). By default it will use all cores available on your system.  By reducing to `8`, we attempt to run up to 4 chromosomes at once (assuming 32 cores total).  Note that this will increase peak memory usage.
+* `--consCores 8`: Specify 8 threads for each core cactus job (`cactus_consolidated`). By default it will use all cores available on your system.  By reducing to `8`, we attempt to run up to 4 chromosomes at once to save time (assuming 32 cores total). Note that this will increase peak memory usage. 
 
 All of the above is explained in more detail in the [Minigraph-Cactus Manual](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md). We are erring on the side of producing lots of different indexes, but it's usually easier than going back and regenerating any forgotten ones.
 
-Here are some details about the resources used. I'm running on a shared server on a slow network drive, so your times may be faster.
+Here are some details about the resources used. I'm running on 32 cores of a shared server with a slow network drive, so your times could be a bit faster.
 
 1) Minigraph Construction :
 2) Minigraph Mapping :
 3) Cactus Alignment :
  * chr1
+
+
+Here are the output files
+```
+
+
+```
+
+And a description of each one
+
