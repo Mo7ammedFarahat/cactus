@@ -36,7 +36,8 @@ Please visit these links for related material and background information before 
 
 * [Minigraph-Cactus Manual](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md): This is essential to read, and includes several small examples (with data) that should be run before tackling whole-genomes.
 * [Minigraph-Cactus Paper](https://doi.org/10.1038/s41587-023-01793-w): The methods are described in detail here.
-* [HPRC v1.1 Minigraph-Cactus Instructions](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/mc-pangenomes/hprc-v1.1-mc.md): Commands and explanations in order to exactly reproduce the latest released HPRC graphs. The commands themselves assume a SLURM cluster but can be trivially modified to run on a single computer (remove `--batchSystem slurm`). 
+* [HPRC v1.1 Minigraph-Cactus Instructions](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/mc-pangenomes/hprc-v1.1-mc.md): Commands and explanations in order to exactly reproduce the latest released HPRC graphs. The commands themselves assume a SLURM cluster but can be trivially modified to run on a single computer (remove `--batchSystem slurm`).
+* [HPRC Graph Downloads](https://github.com/human-pangenomics/hpp_pangenome_resources/): Get the HPRC graphs here.
 * [HPRC Paper](https://doi.org/10.1038/s41586-023-05896-x): Detailed analysis of the HPRC graph, and examples of many downstream applications of Minigraph-Cactus pangenomes. 
 * @jeizenga's [2023 Memphis Workshop](https://github.com/pangenome/MemPanG23/blob/main/lessons/Day_3a_vg_mapping_and_calling.md), which served as an inspiration for this tutorial.
 
@@ -44,7 +45,7 @@ Please visit these links for related material and background information before 
 
 ### Cactus Setup
 
-**Important:** We will be using [Cactus v2.6.11](https://github.com/ComparativeGenomicsToolkit/cactus/releases/tag/v2.6.11) for this tutorial. Be warned that it may not work for newer or older versions.
+**Important:** We will be using [Cactus v2.6.11](https://github.com/ComparativeGenomicsToolkit/cactus/releases/tag/v2.6.11) for this tutorial. Be warned that some steps may not work for older (or newer) versions.
 
 For simplicity, all cactus will be run in "single-machine" mode via its [docker](https://www.docker.com/) image.  Cactus also supports distributed computing environments via [slurm](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/progressive.md#running-on-a-cluster) and [AWS/Mesos](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/running-in-aws.md).
 
@@ -178,7 +179,7 @@ There are four versions of the graph produced (please see [here](https://github.
 * `hprc.sv` : This is the output of `minigraph` and contains only structural variants. The input haplotypes are not embedded as paths
 * `hprc.full` : This is a base-level graph containing all sequence that could be assigned to a reference chromosome. Centromeres are included but are unaligned.
 * `hprc.` : This is a subgraph of `hprc.full` but with centromeres removed.  This is usually the most relevant graph for analysis.
-* `hprc.d2` : This is a subgraph of `hprc.` but with nodes and edges supported by fewer than 2 haplotypes removed. This graph yields better results for read mapping with the original `giraffe` pipeline. We used allele frequency filtering in the HPRC paper but have recently changed `giraffe` so that it is no longer necessary (more details later in the mapping section).
+* `hprc.d2` : This is a subgraph of `hprc.` but with nodes and edges supported by fewer than 2 haplotypes removed. This graph yields better results for read mapping with the original `giraffe` pipeline. We used allele frequency filtering in the HPRC paper (`.d9` via ``-filter 9` for a `10%` cutoff) but have recently changed `giraffe` so that it is no longer necessary (more details later in the mapping section).
 
 The graphs themselves are present in `.gfa.gz` (standard, text-based), `.gbz` (highly compressed, `vg`) and `.og` (`odgi`) formats. `vg giraffe` mapping requires the `.gbz` and `.hapl` index (or `.gbz`, `.dist` and `.min` for the original pipeline).
 
@@ -222,7 +223,7 @@ You can compare that to the length of GRCh38 in the graph
 docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
 vg paths -x /data/hprc10/hprc10.gbz -S GRCh38 -E | awk '{sum += $2} END {print sum}'
 ```
-which is `3099922541`. There is `~45Mbp`bp of additional sequence added to the pangenome from CHM13 and the four samples. Something on the order of a few megabases per sample is reasonable.  If your results are much different, then that is a definite warning sign that something went very wrong.
+which is `3099922541`. There is `~45Mbp`bp of additional (excluding most heterochromatic) sequence added to the pangenome from CHM13 and the four samples. Something on the order of a few megabases per sample is reasonable.  If your results are much different, then that is a definite warning sign that something went very wrong.
 
 Looking at the `.full` graph shows how much additional sequence is added by the centromeres.
 
@@ -264,7 +265,7 @@ The aforementioned `hprc10/chrom-subproblems/contig_sizes.tsv` gives a breakdown
 docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
 vg stats -HT /data/hprc10/hprc10.gbz | sed -e 's/heads//g' -e 's/tails//g' | wc -w
 ```
-Giving a result of `390`. This is two times the number of contigs in GRCh38, ` `, which can be inspected with
+Giving a result of `390`. This is two times the number of contigs in GRCh38, `195`, which can be inspected with
 
 ```
 wget -q https://ftp-trace.ncbi.nlm.nih.gov/ReferenceSamples/giab/release/references/GRCh38/GCA_000001405.15_GRCh38_no_alt_analysis_set.fasta.gz
@@ -291,7 +292,7 @@ ls chrom-components/*.vg | wc -l
 
 Working with whole-genome, or even chromosome, graphs can be unwieldy for many tools such as those used for visualization. You can use `vg` or `odgi` to extract smaller regions from a larger graph.  This tutorial will focus on `vg`, but remember that the `odgi` commands you learned in the PGGB tutorial will apply to `.og` output of `cactus-pangenome` as well.
 
-**Note: `vg` can read `.gfa`, `.vg`, `.gbz` and `.xg` files, though running times and memory usage can vary substantially.
+**Note**: `vg` can read `.gfa`, `.vg`, `.gbz` and `.xg` files, though running times and memory usage can vary substantially.
 
 
 The simplest way to extract a subgraph is by performing queries on `GRCh38` coordinates using `vg chunk` on the `.gbz` file. For example to extract the `lrc_kir` region for visualization with Bandage-NG (which expects `.gfa`), use
@@ -314,7 +315,7 @@ docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomic
 bash -c "vg convert  /data/hprc10.full.gbz -x > /data/hprc10.full.xg"
 ```
 
-(we need to use `bash -c "<commnad>"` in order for the `>` redirect to work)
+(we need to use `bash -c "<command>"` in order for the `>` redirect to work)
 
 ### Format Conversion
 
@@ -334,6 +335,12 @@ In general, you will probably mostly use `.gbz`, 'gfa' and `.og` files for your 
 
 [Panacus](https://github.com/marschall-lab/panacus) is a tool for making beautiful figures describing the coverage in a pangenome graph. It is not (yet) included in the Cactus Docker image, but you can locally install it as follows (see other options in its manual):
 
+With Conda
+```
+mamba install -c conda-forge -c bioconda panacus
+```
+
+or manually with a Python virtualenv:
 ```
 virtualenv -p python3 venv-panacus
 . venv-panacus/bin/activate
@@ -367,7 +374,7 @@ Using `panacus`, especially with `--count bp` to chart sequence length instead o
 
 ### Short Read Mapping
 
-The best way to map short read (genomic) data to the pangenome in `vg giraffe`.  `vg giraffe` supports single and paired-end inputs, and will output graph mappings in [GAM](https://github.com/vgteam/vg/wiki/File-Formats#gam-graph-alignment--map-vgs-bam) or [GAF](https://github.com/lh3/gfatools/blob/master/doc/rGFA.md#the-graph-alignment-format-gaf) format.  See the [surjecting](#surjecting-to-bam) section below for details on outputting BAM.
+The best way to map short read (genomic) data to the pangenome is `vg giraffe`.  `vg giraffe` supports single and paired-end inputs, and will output graph mappings in [GAM](https://github.com/vgteam/vg/wiki/File-Formats#gam-graph-alignment--map-vgs-bam) or [GAF](https://github.com/lh3/gfatools/blob/master/doc/rGFA.md#the-graph-alignment-format-gaf) format.  See the [surjecting](#surjecting-to-bam) section below for details on outputting BAM.
 
 #### Test Reads
 
@@ -386,29 +393,23 @@ docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomic
 bash -c "vg giraffe -Z /data/hprc10/hprc10.d2.gbz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R1.fastq.gz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R2.fastq.gz -o gaf | bgzip > /data/hprc10/hprc10.hg002.gaf.gz"
 ```
 
-This takes 2:20 and takes 47 Gb of RAM.
+This takes about 2.5 hours and takes 47 Gb of RAM.
 
 #### Mapping to the Personal Pangenome (the new way -- not yet published)
 
 Instead of mapping to the filtered graph, you can use the reads to extract a personal pangenome and map to that. This way you keep rare variants that are present in the sample, and exclude common ones that aren't. In most benchmarks so far, this helps accuracy of downstream applications.  It does require one extra step, though, which is extracting the kmers from the input reads with `kmc`.
 
-`kmc` needs to be downloaded first:
-```
-wget https://github.com/refresh-bio/KMC/releases/download/v3.2.2/KMC3.2.2.linux.x64.tar.gz
-tar zxf KMC3.2.2.linux.x64.tar.gz bin/kmc
-```
-
-Then you need to make a file containing the paths of your reads. Assuming it's called `hg002.reads.txt` in the current directory:
+First you need to make a file containing the paths of your reads. Assuming it's called `hg002.reads.txt` in the current directory:
 
 ```
-printf "./HG002.hiseqx.pcr-free.30x.R1.fastq.gz\n./HG002.hiseqx.pcr-free.30x.R2.fastq.gz\n" > hg002.reads.txt
+printf "/data/HG002.hiseqx.pcr-free.30x.R1.fastq.gz\n./data/HG002.hiseqx.pcr-free.30x.R2.fastq.gz\n" > hg002.reads.txt
 ```
 
 Then you use `kmc` to make the kmers index (`hg002.kff`)
 
 ```
-kmc -k29 -m128 -okff -t32  @hg002.reads.txt hg002 $TMPDIR
-
+docker run -it --rm -v $(pwd)/data --user $UID:$GID gregorysprenger/kmc:v3.2.2 \
+kmc -k29 -m128 -okff -t32 @/data/hg002.reads.txt hg002 $TMPDIR
 ```
 
 which takes about 15 minutes and 128Gb of memory.
@@ -420,7 +421,7 @@ docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomic
 bash -c "vg giraffe -Z /data/hprc10/hprc10.gbz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R1.fastq.gz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R2.fastq.gz -o gaf --sample HG002 --progress --kff-name /data/hg002.kff --haplotype-name /data/hprc10/hprc10.hapl | bgzip > /data/hprc10/hprc10.hg002.new.gaf.gz"
 ```
 
-This takes about 2:45 and 64Gb of RAM,  and also produces `/data/hprc10.HG002.gbz`, which is the personal pangenome. 
+This takes about 2.75 hours and 64Gb of RAM, and also produces `/data/hprc10.HG002.gbz`, which is the personal pangenome graph itself.
 
 ### Long Read Mapping
 
@@ -434,7 +435,7 @@ There is no example in this tutorial, but one can be added on request.
 
 You can project your read mappings from the graph to a linear reference with `vg surject`.  This will let you output your mappings in BAM format, which can be used with non-pangenome tools like `DeepVariant`, `samtools` or `GATK`.
 
-You can project your mappings to any reference path in the graph, so GRCh38 or CHM13 in the example.  You can in theory project reads to any sample in the graph (even non reference samples) but it is a little trickier and not covered here.
+You can project your mappings to any reference path in the graph (as selected with `--reference` in `cactus-pangenome`), so GRCh38 or CHM13 in the example.  You can in theory project reads to any sample in the graph (even non reference samples) but it is a little trickier and not covered here (requires updating the `.gbz` with `vg gbwt`).
 
 You must first create a list of reference paths (it is important to use the full graph for CHM13 paths):
 
@@ -453,7 +454,7 @@ docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomic
 bash -c "vg surject -x /data/hprc10/hprc10.gbz -G /data/hprc10/hprc10.hg002.new.gaf.gz --interleaved -F grch38.paths.txt -b -N HG002 -R 'ID:1 LB:lib1 SM:HG002 PL:illumina PU:unit1' > /data/hprc10/hprc10.hg002.new.bam"
 ```
 
-This takes 4:08 and 64Gb RAM. 
+This takes about 4 hours and 64Gb RAM. 
 
 It's important to use `--interleaved` to tell `surject` that the reads are paired.  The readgroup `-R` is boilerplate tags to help `DeepVariant`.
 
@@ -461,9 +462,7 @@ You should be able to use `hprc10.gbz` for surjection whether you aligned to `hp
 
 #### Mapping Directly to BAM
 
-If you are only ever going to use the BAM, you don't need to create the GAF with `giraffe` then `surject` after -- you can do both at once.
-
-Then you can run (use `--ref-paths chm13.paths.txt` to project to CHM13 instead):
+If you are only ever going to use the BAM, you don't need to create the GAF with `giraffe` then `surject` afterwards -- you can do both at once (use `--ref-paths chm13.paths.txt` to project to CHM13 instead):
 ```
 docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
 bash -c "vg giraffe -Z /data/hprc10/hprc10.gbz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R1.fastq.gz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R2.fastq.gz -o bam --sample HG002 --progress --kff-name /data/hg002.kff --haplotype-name /data/hprc10/hprc10.hapl -R 'ID:1 LB:lib1 SM:HG002 PL:illumina PU:unit1' --ref-paths /data/grch38.paths.txt > /data/hprc10/hprc10.hg002.new.bam"
@@ -481,6 +480,8 @@ First, make a FASTA file from your graph (it is generally best to make the FASTA
 ```
 docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
 bash -c "vg paths -x /data/hprc10/hprc10.gbz -S GRCh38 -F > /data/GRCh38.fa"
+docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
+samtools faidx /data/GRCh38.fa
 ```
 
 Next, index the BAM (this is a required step for almost any variant caller that takes BAM input)
@@ -492,14 +493,16 @@ docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomic
 samtools index /data/hprc10/hprc10.hg002.new.sort.bam -@ 8
 ```
 
+These commands took about 30 minutes and very little memory (could be much faster on a local disk).
+
 Finally, run DeepVariant to make a VCF from the BAM.
 
 ```
-docker run --rm $(pwd):/data --user $UID:$GID google/deepvariant:"1.6.0" \
+docker run -it --rm -v $(pwd):/data --user $UID:$GID google/deepvariant:1.6.0 \
   /opt/deepvariant/bin/run_deepvariant \
   --model_type=WGS \
   --ref=/data/GRCh38.fa \
-  --reads=/data/hprc10/hprc10.hg002.new.sort.ba\
+  --reads=/data/hprc10/hprc10.hg002.new.sort.bam\
   --output_vcf=/data/hprc10/hprc10.hg002.new.dv.vcf.gz \
   --output_gvcf=/data/hprc10/hprc10.hg002.new.dv.g.vcf.gz \
   --make_examples_extra_args="min_mapping_quality=1,keep_legacy_allele_counter_behavior=true,normalize_reads=true" \
@@ -513,9 +516,28 @@ We make an important distinction between *genotying* and *calling*:
 * *genotyping*: Determine which variants in the graph are present in (each haplotype) of the sample.
 * *calling*: Determine which variants in the reads are present in (each haplotype) of the sample. These variants may or may not be in the graph.
 
-A 
+One strength of pangenome graphs is that they allow Structural Variants (SVs), which are normally different to determine from short reads, to be efficiently genotyped. One way to do this is with [vg call](https://doi.org/10.1186/s13059-020-1941-7).  This is a two-step process, beginning with a graph alignment (GAF or GAM) from `vg giraffe`.
+
+First, create a `.pack` coverage index:
+```
+docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
+vg pack -x /data/hprc10/hprc10.gbz -Q5 -a /data/hprc10/hprc10.hg002.new.gaf.gz -o /data/hprc10/hprc10.hg002.pack
+```
+
+This takes about 1 hour and 60 Gb RAM.
+
+Then, create the VCF with `vg call`:
+
+```
+docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
+bash -c "vg call /data/hprc10/hprc10.gbz -r /data/hprc10/hprc10.snarls -k /data/hprc10/hprc10.hg002.pack -s HG002 -S GRCh38 -az | bgzip >  /data/hprc10/hprc10.call.vcf.gz"
+```
+
+This takes
 
 ### SV Genotyping with pangenie
+
+TODO
 
 
 
