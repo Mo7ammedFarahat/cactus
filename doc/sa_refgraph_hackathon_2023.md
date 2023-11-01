@@ -27,13 +27,13 @@
 
 This is a tutorial written to support the **Reference Graph Pangenome Data Analysis Hackathon 2023 Nov. 13-17 in Cape Town, South Africa**. The aim is to provide detailed instructions on how to create a pangenome reference graph with Minigraph-Cactus then use it for some downstream analysis like variant calling and genotyping.
 
-Unlike some previous workshops, and most of the existing Cactus documentation, this tutorial will focus on whole-genome human data. As such, it will need to be run over a period of time longer than a typical workshop session. The running times and memory usage of each command will be given. 
+Unlike some previous workshops, and most of the existing Cactus documentation, this tutorial will focus on whole-genome human data. As such, it will need to be run over a period of time longer than a typical workshop session. The running times and memory usage of each command will be given wherever possible. 
 
 Slack (`#refgraph_hackathon_2023`) will probably be the best place to reach out to me (Glenn Hickey) for support. 
 
 ## Key Reference Material
 
-Please visit these links for related material and background information before proceeding further. **The first link is essential and should absolutely be consulted before continuing and the rest are highly recommended.** 
+Please visit these links for related material and background information before proceeding further. **The first link is essential and should absolutely be consulted before continuing, and the rest are highly recommended.** 
 
 * [Minigraph-Cactus Manual](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md): This is essential to read, and includes several small examples (with data) that should be run before tackling whole-genomes.
 * [Minigraph-Cactus Paper](https://doi.org/10.1038/s41587-023-01793-w): The methods are described in detail here.
@@ -387,7 +387,7 @@ wget https://storage.googleapis.com/brain-genomics-public/research/sequencing/fa
 
 #### Mapping to the Allele-Frequency Filtered Graph (the old way)
 
-You can map the above reads with `giraffe` using this command (it assumes the reads are in the same location as the graph, but you can modify it accordingly, even adding another `-v` argument if necessary:
+You can map the above reads with `giraffe` using this command (it assumes the reads are in the same location as the graph, but you can modify it accordingly, even adding another `-v` argument if necessary):
 
 ```
 docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
@@ -424,7 +424,9 @@ bash -c "vg giraffe -Z /data/hprc10/hprc10.gbz -f /data/hprc10/HG002.hiseqx.pcr-
 
 This takes about 2.75 hours and 64Gb of RAM, and also produces `/data/hprc10.HG002.gbz`, which is the personal pangenome graph itself.
 
-### Long Read Mapping (stretch goal)
+### Long Read Mapping
+
+Stretch Goal
 
 `vg giraffe` will soon be able to map long reads, but is not ready yet. For now, you should use [GraphAligner](https://github.com/maickrau/GraphAligner). It should run quite well on `hprc10.gfa`.
 
