@@ -15,12 +15,13 @@
      * [Panacus](#panacus)
 * [Part 3: Mapping Reads to the Graph](#part-3-mapping-reads-to-the-graph)
      * [Short Read Mapping](#short-read-mapping)
-     * [Long Read Mapping](#long-read-mapping)
+     * [Long Read Mapping (stretch goal)](#long-read-mapping)
      * [Surjecting To BAM](#surjecting-to-bam)
-* [Part 4: Genotyping and Variant Calling]
+* [Part 4: Genotyping and Variant Calling](#part-4-genotyping-and-variant-calling)
      * [Variant Calling with DeepVariant](#variant-calling-with-deepvariant)
      * [SV Genotyping with vg](#sv-genotyping-with-vg)
-     * [SV Genotyping with pangenie](#sv-genotyping-with-pangenie)
+     * [SV Genotyping with pangenie (stretch goal)](#sv-genotyping-with-pangenie)
+     * [Pantranscriptomics (stretch goal)](#pantranscriptomics)
 
 ## Abstract
 
@@ -423,7 +424,7 @@ bash -c "vg giraffe -Z /data/hprc10/hprc10.gbz -f /data/hprc10/HG002.hiseqx.pcr-
 
 This takes about 2.75 hours and 64Gb of RAM, and also produces `/data/hprc10.HG002.gbz`, which is the personal pangenome graph itself.
 
-### Long Read Mapping
+### Long Read Mapping (stretch goal)
 
 `vg giraffe` will soon be able to map long reads, but is not ready yet. For now, you should use [GraphAligner](https://github.com/maickrau/GraphAligner). It should run quite well on `hprc10.gfa`.
 
@@ -537,7 +538,11 @@ This takes
 
 ### SV Genotyping with pangenie
 
-TODO
+Stretch Goal
+
+### Pantranscriptomics
+
+Stretch Goal
 
 
 
