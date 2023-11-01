@@ -17,6 +17,10 @@
      * [Short Read Mapping](#short-read-mapping)
      * [Long Read Mapping](#long-read-mapping)
      * [Surjecting To BAM](#surjecting-to-bam)
+* [Part 4: Genotyping and Variant Calling]
+     * [Variant Calling with DeepVariant](#variant-calling-with-deepvariant)
+     * [SV Genotyping with vg](#sv-genotyping-with-vg)
+     * [SV Genotyping with pangenie](#sv-genotyping-with-pangenie)
 
 ## Abstract
 
@@ -380,8 +384,9 @@ You can map the above reads with `giraffe` using this command (it assumes the re
 ```
 docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
 bash -c "vg giraffe -Z /data/hprc10/hprc10.d2.gbz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R1.fastq.gz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R2.fastq.gz -o gaf | bgzip > /data/hprc10/hprc10.hg002.gaf.gz"
-
 ```
+
+This takes 2:20 and takes 47 Gb of RAM.
 
 #### Mapping to the Personal Pangenome (the new way -- not yet published)
 
@@ -415,8 +420,7 @@ docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomic
 bash -c "vg giraffe -Z /data/hprc10/hprc10.gbz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R1.fastq.gz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R2.fastq.gz -o gaf --sample HG002 --progress --kff-name /data/hg002.kff --haplotype-name /data/hprc10/hprc10.hapl | bgzip > /data/hprc10/hprc10.hg002.new.gaf.gz"
 ```
 
-This takes about, and also produces `/data/hprc10.HG002.gbz`, which is the personal pangenome. 
-
+This takes about 2:45 and 64Gb of RAM,  and also produces `/data/hprc10.HG002.gbz`, which is the personal pangenome. 
 
 ### Long Read Mapping
 
@@ -432,21 +436,6 @@ You can project your read mappings from the graph to a linear reference with `vg
 
 You can project your mappings to any reference path in the graph, so GRCh38 or CHM13 in the example.  You can in theory project reads to any sample in the graph (even non reference samples) but it is a little trickier and not covered here.
 
-To project your reads to `GRCh38`, do the following (use `-n CHM13` to instead project to CHM13).
-
-```
-docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
-bash -c "vg surject -x /data/hprc10/hprc10.gbz -G /data/hprc10/hprc10.hg002.new.gaf.gz --interleaved -n GRCh38 -b -N HG002 -R 'ID:1 LB:lib1 SM:HG002 PL:illumina PU:unit1' > /data/hprc10/hprc10.hg002.new.bam"
-```
-
-It's important to use `--interleaved` to tell `surject` that the reads are paired.  The readgroup `-R` is boilerplate tags to help `DeepVariant`.
-
-You should be able to use `hprc10.gbz` for surjection whether you aligned to `hprc.d2.gbz` or `hprc.gbz` initially.
-
-#### Mapping Directly to BAM
-
-If you are only ever going to use the BAM, you don't need to create the GAF with `giraffe` then `surject` after -- you can do both at once.
-
 You must first create a list of reference paths (it is important to use the full graph for CHM13 paths):
 
 ```
@@ -457,13 +446,76 @@ docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomic
 vg paths -x /data/hprc10/hprc10.full.gbz -S CHM13 -L > chm13.paths.txt
 ```
 
+To project your reads to `GRCh38`, do the following (use `-p chm13.paths.txt` to instead project to CHM13).
+
+```
+docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
+bash -c "vg surject -x /data/hprc10/hprc10.gbz -G /data/hprc10/hprc10.hg002.new.gaf.gz --interleaved -F grch38.paths.txt -b -N HG002 -R 'ID:1 LB:lib1 SM:HG002 PL:illumina PU:unit1' > /data/hprc10/hprc10.hg002.new.bam"
+```
+
+This takes 4:08 and 64Gb RAM. 
+
+It's important to use `--interleaved` to tell `surject` that the reads are paired.  The readgroup `-R` is boilerplate tags to help `DeepVariant`.
+
+You should be able to use `hprc10.gbz` for surjection whether you aligned to `hprc.d2.gbz` or `hprc.gbz` initially.
+
+#### Mapping Directly to BAM
+
+If you are only ever going to use the BAM, you don't need to create the GAF with `giraffe` then `surject` after -- you can do both at once.
+
 Then you can run (use `--ref-paths chm13.paths.txt` to project to CHM13 instead):
 ```
 docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
-bash -c "vg giraffe -Z /data/hprc10/hprc10.gbz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R1.fastq.gz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R2.fastq.gz -o bam --sample HG002 --progress --kff-name /data/hg002.kff --haplotype-name /data/hprc10/hprc10.hapl -R 'ID:1 LB:lib1 SM:HG002 PL:illumina PU:unit1' --ref-paths grch38.paths.txt > /data/hprc10/hprc10.hg002.new.bam"
+bash -c "vg giraffe -Z /data/hprc10/hprc10.gbz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R1.fastq.gz -f /data/hprc10/HG002.hiseqx.pcr-free.30x.R2.fastq.gz -o bam --sample HG002 --progress --kff-name /data/hg002.kff --haplotype-name /data/hprc10/hprc10.hapl -R 'ID:1 LB:lib1 SM:HG002 PL:illumina PU:unit1' --ref-paths /data/grch38.paths.txt > /data/hprc10/hprc10.hg002.new.bam"
 
 ```
 
+## Part 4: Genotyping and Variant Calling
+
+### Variant Calling with DeepVariant
+
+[DeepVariant](https://github.com/google/deepvariant) is a state of the art variant caller. It does not use pangenome format, and rather works on FASTA and BAM files, but has been trained to support data from `vg giraffe / surject`.
+
+First, make a FASTA file from your graph (it is generally best to make the FASTA from the graph, to make sure it matches up exactly.  If you are using a different reference, ie CHM13, use the `.full` graph for this step):
+
+```
+docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
+bash -c "vg paths -x /data/hprc10/hprc10.gbz -S GRCh38 -F > /data/GRCh38.fa"
+```
+
+Next, index the BAM (this is a required step for almost any variant caller that takes BAM input)
+
+```
+docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
+samtools sort  /data/hprc10/hprc10.hg002.new.bam -O BAM -o /data/hprc10/hprc10.hg002.new.sort.bam --threads 8
+docker run -it --rm -v $(pwd):/data --user $UID:$GID quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
+samtools index /data/hprc10/hprc10.hg002.new.sort.bam -@ 8
+```
+
+Finally, run DeepVariant to make a VCF from the BAM.
+
+```
+docker run --rm $(pwd):/data --user $UID:$GID google/deepvariant:"1.6.0" \
+  /opt/deepvariant/bin/run_deepvariant \
+  --model_type=WGS \
+  --ref=/data/GRCh38.fa \
+  --reads=/data/hprc10/hprc10.hg002.new.sort.ba\
+  --output_vcf=/data/hprc10/hprc10.hg002.new.dv.vcf.gz \
+  --output_gvcf=/data/hprc10/hprc10.hg002.new.dv.g.vcf.gz \
+  --make_examples_extra_args="min_mapping_quality=1,keep_legacy_allele_counter_behavior=true,normalize_reads=true" \
+  --num_shards=32
+```
+
+### SV Genotyping with vg
+
+We make an important distinction between *genotying* and *calling*:
+
+* *genotyping*: Determine which variants in the graph are present in (each haplotype) of the sample.
+* *calling*: Determine which variants in the reads are present in (each haplotype) of the sample. These variants may or may not be in the graph.
+
+A 
+
+### SV Genotyping with pangenie
 
 
 
