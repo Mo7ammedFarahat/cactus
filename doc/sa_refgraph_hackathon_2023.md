@@ -87,6 +87,7 @@ Here it is, with an explanation of each option following below.
 
 ```
 rm -rf cactus-scratch && mkdir cactus-scratch
+
 singularity exec -H $(pwd) docker://quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
 cactus-pangenome ./js ./hprc10.seqfile --outDir ./hprc10 --outName hprc10 --reference GRCh38 CHM13 \
 --filter 2 --haplo --giraffe clip filter --viz --odgi --chrom-vg clip filter --chrom-og --gbz clip filter full \
@@ -127,7 +128,7 @@ Here are some details about the resources used. I'm on a big shared server using
 2) Minigraph Mapping : ~200Gi (max per-job 40Gi) ~2 hour
 3) Cactus Alignment : ~65Gi (max per-job 16Gi) ~1 hour
 4) Normalization and Indexing : ~64 Gi ~3 hours 
-5) Overall : 11 hours
+5) Overall : 11 hours (in environment with 32 cores / 256 Gb RAM)
 
 Here are the output files:
 ```
@@ -250,7 +251,7 @@ singularity exec -H $(pwd) docker://quay.io/comparative-genomics-toolkit/cactus:
 vg paths -x ./hprc10/hprc10.gbz -Q HG00438#2 -E | awk '{sum += $2} END {print sum}'
 ```
 
-Show that there is `5679580423`bp for `HG00438`, with `2841204110` and `` in its first (paternal) and second (maternal) haplotype, respectively. 
+Show that there is `5679580423`bp for `HG00438`, with `2841204110` and `2838376313` in its first (paternal) and second (maternal) haplotype, respectively. 
 
 The aforementioned `hprc10/chrom-subproblems/contig_sizes.tsv` gives a breakdown of the length of each haplotype in each chromosome. Can be useful to load into a spreadsheet and/or graph in order to check that all input haplotypes are properly represented in the graph.
 
@@ -403,11 +404,11 @@ printf "./HG002.hiseqx.pcr-free.30x.R1.fastq.gz\n../HG002.hiseqx.pcr-free.30x.R2
 Then you use `kmc` to make the kmers index (`hg002.kff`)
 
 ```
-docker run -it --rm -v $(pwd)/data --user $UID:$GID gregorysprenger/kmc:v3.2.2 \
-kmc -k29 -m128 -okff -t32 @./hg002.reads.txt hg002 $TMPDIR
+singularity exec -H $(pwd) docker://gregorysprenger/kmc:v3.2.2 \
+kmc -k29 -m128 -okff -t32 @./hg002.reads.txt hg002 .
 ```
 
-which takes about 15 minutes and 128Gb of memory.
+which takes about 15 minutes and 128Gb of memory.  The `.` as the last argument is telling `kmc` to use the current working directory as its workind directory. 
 
 And you use this index to map to the unfiltered graph with `vg giraffe`. 
 
@@ -430,7 +431,7 @@ There is no example in this tutorial, but one can be added on request.
 
 #### From GAF/GAM to BAM
 
-You can project your read mappings from the graph to a linear reference with `vg surject`.  This will let you output your mappings in BAM format, which can be used with non-pangenome tools like `DeepVariant`, `samtools` or `GATK`.
+You can project your read mappings from the graph to a linear reference with `vg surject`.  This will let you output your mappings in BAM format, which can be used with non-pangenome tools like `DeepVariant`, `samtools`, `GATK` etc.
 
 You can project your mappings to any reference path in the graph (as selected with `--reference` in `cactus-pangenome`), so GRCh38 or CHM13 in the example.  You can in theory project reads to any sample in the graph (even non reference samples) but it is a little trickier and not covered here (requires updating the `.gbz` with `vg gbwt`).
 
@@ -444,7 +445,7 @@ singularity exec -H $(pwd) docker://quay.io/comparative-genomics-toolkit/cactus:
 vg paths -x ./hprc10/hprc10.full.gbz -S CHM13 -L > chm13.paths.txt
 ```
 
-To project your reads to `GRCh38`, do the following (use `-p chm13.paths.txt` to instead project to CHM13).
+To project your reads to `GRCh38`, do the following (use `-p chm13.paths.txt` to instead project to CHM13).  If you don't supply a path list with `-F` it will project to to a mix of GRCh38 and CHM13 which is almost certainly *not* what you want.
 
 ```
 singularity exec -H $(pwd) docker://quay.io/comparative-genomics-toolkit/cactus:v2.6.11 \
@@ -453,9 +454,9 @@ bash -c "vg surject -x ./hprc10/hprc10.gbz -G ./hprc10/hprc10.hg002.new.gaf.gz -
 
 This takes about 4 hours and 64Gb RAM. 
 
-It's important to use `--interleaved` to tell `surject` that the reads are paired.  The readgroup `-R` is boilerplate tags to help `DeepVariant`.
+It's important to use `--interleaved` to tell `surject` that the reads are paired.  The readgroup `-R` is boilerplate tags to help `DeepVariant` or other tools that expect this info in the BAM header.  You can also modify the header yourself with `samtools` if needed.
 
-You should be able to use `hprc10.gbz` for surjection whether you aligned to `hprc.d2.gbz` or `hprc.gbz` initially.
+You should be able to use `hprc10.gbz` for surjection whether you aligned to `hprc10.d2.gbz` or `hprc10.gbz` or the personalized pangenome initially.
 
 #### Mapping Directly to BAM
 
@@ -466,11 +467,13 @@ bash -c "vg giraffe -Z ./hprc10/hprc10.gbz -f ./hprc10/HG002.hiseqx.pcr-free.30x
 
 ```
 
+This takes about 4 hours and 64 Gb RAM. 
+
 ## Part 4: Genotyping and Variant Calling
 
 ### Variant Calling with DeepVariant
 
-[DeepVariant](https://github.com/google/deepvariant) is a state of the art variant caller. It does not use pangenome format, and rather works on FASTA and BAM files, but has been trained to support data from `vg giraffe / surject`.
+[DeepVariant](https://github.com/google/deepvariant) is a state of the art variant caller. It does not use pangenome formats, and rather works on FASTA and BAM files, but has been trained to support data from `vg giraffe / surject`.
 
 First, make a FASTA file from your graph (it is generally best to make the FASTA from the graph, to make sure it matches up exactly.  If you are using a different reference, ie CHM13, use the `.full` graph for this step):
 
@@ -506,6 +509,8 @@ singularity exec -H $(pwd) docker://google/deepvariant:1.6.0 \
   --num_shards=32
 ```
 
+This took about 13 hours.
+
 ### SV Genotyping with vg
 
 We make an important distinction between *genotying* and *calling*:
@@ -530,15 +535,15 @@ singularity exec -H $(pwd) docker://quay.io/comparative-genomics-toolkit/cactus:
 bash -c "vg call ./hprc10/hprc10.gbz -r ./hprc10/hprc10.snarls -k ./hprc10/hprc10.hg002.pack -s HG002 -S GRCh38 -az | bgzip >  ./hprc10/hprc10.call.vcf.gz"
 ```
 
-This takes
+This takes 30 minutes and 40 Gb RAM.
 
 ### SV Genotyping with pangenie
 
-Stretch Goal
+Stretch Goal / TODO
 
 ### Pantranscriptomics
 
-Stretch Goal
+Stretch Goal / TODO
 
 
 
