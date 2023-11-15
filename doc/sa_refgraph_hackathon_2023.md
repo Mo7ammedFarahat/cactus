@@ -8,6 +8,7 @@
      * [Cactus Setup](#cactus-setup)
      * [Input Data](#input-data)
      * [Build and Index the Pangenome Graph](#build-and-index-the-pangenome-graph)
+     * [Running on Slurm](#running-on-slurm)     
 * [Part 2: Pangenome Graph Properties](#part-2-pangenome-graph-properties)
      * [Basic Statistics](#basic-statistics)
      * [Subgraph Extraction](#subgraph-extraction)
@@ -37,7 +38,7 @@ Please visit these links for related material and background information before 
 
 * [Minigraph-Cactus Manual](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md): This is essential to read, and includes several small examples (with data) that should be run before tackling whole-genomes.
 * [Minigraph-Cactus Paper](https://doi.org/10.1038/s41587-023-01793-w): The methods are described in detail here.
-* [HPRC v1.1 Minigraph-Cactus Instructions](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/mc-pangenomes/hprc-v1.1-mc.md): Commands and explanations in order to exactly reproduce the latest released HPRC graphs. The commands themselves assume a SLURM cluster but can be trivially modified to run on a single computer (remove `--batchSystem slurm`).
+* [HPRC v1.1 Minigraph-Cactus Instructions](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/mc-pangenomes/hprc-v1.1-mc.md): Commands and explanations in order to exactly reproduce the latest released HPRC graphs. The commands themselves assume a Slurm cluster but can be trivially modified to run on a single computer (remove `--batchSystem slurm`).
 * [HPRC Graph Downloads](https://github.com/human-pangenomics/hpp_pangenome_resources/): Get the HPRC graphs here.
 * [HPRC Paper](https://doi.org/10.1038/s41586-023-05896-x): Detailed analysis of the HPRC graph, and examples of many downstream applications of Minigraph-Cactus pangenomes. 
 * @jeizenga's [2023 Memphis Workshop](https://github.com/pangenome/MemPanG23/blob/main/lessons/Day_3a_vg_mapping_and_calling.md), which served as an inspiration for this tutorial.
@@ -48,7 +49,7 @@ Please visit these links for related material and background information before 
 
 **Important:** We will be using [Cactus v2.6.13](https://github.com/ComparativeGenomicsToolkit/cactus/releases/tag/v2.6.13) for this tutorial. Be warned that some steps may not work for older (or newer) versions.
 
-For simplicity, all cactus will be run in "single-machine" mode via its [docker](https://www.docker.com/) image.  Cactus also supports distributed computing environments via [slurm](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/progressive.md#running-on-a-cluster) and [AWS/Mesos](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/running-in-aws.md).
+For simplicity, all cactus will be run in "single-machine" mode via its [docker](https://www.docker.com/) image.  Cactus also supports distributed computing environments via [slurm](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/progressive.md#running-on-a-cluster) and [AWS/Mesos](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/running-in-aws.md). See the [Running on Slurm](#running-on-slurm) section for more details about running on a cluster.
 
 In order to make sure `singularity` is working, try running the following and verify that you do not get an error. If this step does not work, you will need to consult your local sysadmin. 
 ```
@@ -195,6 +196,41 @@ There are four directories:
 * `chrom-alignments` : The raw, per-chromosome output of `cactus` including `.vg` and `.hal` files.  Only useful for debugging and / or re-running the last part of the pipeline (indexing and normalization).
 * `hprc10.chroms` : Chromosome graphs in `.vg` and `.og` format.  Useful for debugging and visualization. If you are using `GRCh38` as a reference, the unplaced contigs will all get lumped into the `chrOther` graph.  
 * `hprc10.viz` : ODGI 1-D visualizations for each chromosome.
+
+### Running on Slurm
+
+Cactus is a Python script that uses [Toil](https://github.com/DataBiosphere/toil) to execute different programs in parallel. Toil supports distributed computing environments such as (Slurm)[https://slurm.schedmd.com/overview.html]. Slurm is now the best way to run Cactus at scale. They key challenge is to make sure that each cactus job gets a good memory estimate.  If the memory estimate is too high, then the job will use too much cluster resources or, even worse, fail completely because it asks for more resources than are available on the cluster. If the memory estimate is too low, then Slurm may evict the job for using too much memory.  Both of these errors are very difficult to recover from, unfortunately.  Cactus does its best to estimate the memory from the input data (and should do fine in the current tutorial), but there are three options to override the memory estimates of bigger jobs:
+
+* `--mgMemory` : Memory for minigraph construction.
+* `--consMemory` : Memory for cactus alignment.
+* `--indexMemory` : Memory for full-genome vg indexing.
+
+To run the previous `cactus-pangenome` command on Slurm instead of locally, you must do the following.
+
+First, install the Cactus virtual environment:
+
+```
+wget -q https://github.com/ComparativeGenomicsToolkit/cactus/releases/download/v2.6.13/cactus-bin-v2.6.13.tar.gz
+```
+Then follow the instructions [described here](https://github.com/ComparativeGenomicsToolkit/cactus/blob/v2.6.13/BIN-INSTALL.md)
+
+Next, switch to the directory where your input data is and where you want to run cactus and run
+
+```
+rm -rf slurm-logs ; mkdir -p slurm-logs
+
+cactus-pangenome ./js ./hprc10.seqfile --outDir ./hprc10 --outName hprc10 --reference GRCh38 CHM13 \
+--filter 2 --haplo --giraffe clip filter --viz --odgi --chrom-vg clip filter --chrom-og --gbz clip filter full \
+--gfa clip full --vcf --vcfReference GRCh38 CHM13 --logFile ./hprc10.log
+--consCores 8 --mgMemory 128Gi --batchSystem slurm --batchLogsDir ./slurm-logs --binariesMode singularity
+```
+
+These are the differences with the previous example:
+* `--workDir` not set: but you can put a location that's available on all worker nodes if you want.
+* `--batchSystem slurm`: activates slurm support
+* `--batchLogsDir ./slurm-logs` : improves logging of slurm-specific issues by keeping a local copy of all slurm logs
+* `--binariesMode singularity` : run all cactus binaries from inside the singularity container
+
 
 ## Part 2: Pangenome Graph Properties
 
