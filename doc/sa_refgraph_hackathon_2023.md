@@ -82,8 +82,6 @@ HG00733.2	https://s3-us-west-2.amazonaws.com/human-pangenomics/working/HPRC_PLUS
 
 ### Build and Index the Pangenome Graph
 
-**UPDATE:  This tutorial actually requires 400Gi of memory**.  It never actually uses it, but Toil demands it be available fot the minigraph construct job.  I had tested this in a docker conainter made with `--memory 250000000000` but apparently Toil was still able to see the larger memory of my host system and did not complain).
-
 I am going to run on 32-cores in order to simulate my understanding of an "average" node on your cluster. As you've seen in the [Minigraph-Cactus Manual](https://github.com/ComparativeGenomicsToolkit/cactus/blob/master/doc/pangenome.md) (please go back and read it if you haven't already), the simplest way to build the graph is with the `cactus-pangenome` command.
 
 Here it is, with an explanation of each option following below.
