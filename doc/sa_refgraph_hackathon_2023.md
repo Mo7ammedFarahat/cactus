@@ -22,7 +22,6 @@
      * [Variant Calling with DeepVariant](#variant-calling-with-deepvariant)
      * [SV Genotyping with vg](#sv-genotyping-with-vg)
      * [SV Genotyping with pangenie (stretch goal)](#sv-genotyping-with-pangenie)
-     * [Pantranscriptomics (stretch goal)](#pantranscriptomics)
 
 ## Abstract
 
@@ -577,10 +576,6 @@ bash -c "vg call ./hprc10/hprc10.gbz -r ./hprc10/hprc10.snarls -k ./hprc10/hprc1
 This takes 30 minutes and 40 Gb RAM.
 
 ### SV Genotyping with pangenie
-
-Stretch Goal / TODO
-
-### Pantranscriptomics
 
 Stretch Goal / TODO
 
