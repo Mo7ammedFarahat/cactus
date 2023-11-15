@@ -203,6 +203,8 @@ Cactus is a Python script that uses [Toil](https://github.com/DataBiosphere/toil
 * `--consMemory` : Memory for cactus alignment.
 * `--indexMemory` : Memory for full-genome vg indexing.
 
+See [here](https://github.com/ComparativeGenomicsToolkit/cactus/blob/hprc-v1.1/doc/mc-pangenomes/hprc-v1.1-mc.md#pangenie-filtering) for an example of how Cactus was run on Slurm to generate the v1.1 HPRC graphs. 
+
 To run the previous `cactus-pangenome` command on Slurm instead of locally, you must do the following.
 
 First, install the Cactus virtual environment:
